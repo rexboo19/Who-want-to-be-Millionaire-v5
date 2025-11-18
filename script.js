@@ -933,8 +933,14 @@ class MathMillionaireGame {
     
     // Show statistics (similar to Ask the Audience, but can be clicked anytime)
     async showStatistics() {
-        // Check if there's an active game session
-        const currentSession = localStorage.getItem('currentGameSession');
+        // Check if there's an active game session using dataStore
+        let currentSession = null;
+        if (window.dataStore) {
+            currentSession = await window.dataStore.get('currentGameSession');
+        } else {
+            currentSession = localStorage.getItem('currentGameSession');
+        }
+        
         let questionIndex = -1;
         let question = null;
         
@@ -944,16 +950,27 @@ class MathMillionaireGame {
             question = this.questions[questionIndex];
         } else if (currentSession) {
             // If session exists but game not active, try to get the last question
-            const lastQuestionIndex = localStorage.getItem(`gameSession_${currentSession}_question`);
+            let lastQuestionIndex = null;
+            let questionData = null;
+            
+            if (window.dataStore) {
+                lastQuestionIndex = await window.dataStore.get(`gameSession_${currentSession}_question`);
+                questionData = await window.dataStore.get(`gameSession_${currentSession}_questionData`);
+            } else {
+                lastQuestionIndex = localStorage.getItem(`gameSession_${currentSession}_question`);
+                const questionDataStr = localStorage.getItem(`gameSession_${currentSession}_questionData`);
+                if (questionDataStr) {
+                    questionData = JSON.parse(questionDataStr);
+                }
+            }
+            
             if (lastQuestionIndex !== null) {
                 questionIndex = parseInt(lastQuestionIndex);
-                const questionData = localStorage.getItem(`gameSession_${currentSession}_questionData`);
                 if (questionData) {
-                    const data = JSON.parse(questionData);
                     question = {
-                        question: data.question,
-                        options: data.options,
-                        correct: null // We don't know the correct answer from stored data
+                        question: questionData.question,
+                        options: questionData.options,
+                        correct: questionData.correct || null
                     };
                 }
             }
@@ -964,7 +981,12 @@ class MathMillionaireGame {
         
         // If we have a question, show statistics for it
         if (question && questionIndex >= 0) {
-            this.showQuestionStatistics(question, questionIndex, currentSession, classScores);
+            await this.showQuestionStatistics(question, questionIndex, currentSession, classScores);
+            
+            // Set up real-time listener for this question's votes if using Firebase
+            if (window.dataStore && window.dataStore.useFirebase && currentSession) {
+                this.setupStatisticsListener(currentSession, questionIndex, question, classScores);
+            }
         } else {
             // No active question, but show class scores if available
             if (Object.keys(classScores).length > 0) {
@@ -972,6 +994,11 @@ class MathMillionaireGame {
                 statsHTML += this.renderClassScores(classScores);
                 statsHTML += '</div>';
                 this.showLifelineModal('Statistics', statsHTML);
+                
+                // Set up real-time listener for class scores if using Firebase
+                if (window.dataStore && window.dataStore.useFirebase && currentSession) {
+                    this.setupClassScoresListener(currentSession);
+                }
             } else {
                 // No active question, show message
                 this.showLifelineModal('Statistics', `
@@ -982,6 +1009,82 @@ class MathMillionaireGame {
                     </div>
                 `);
             }
+        }
+    }
+    
+    // Set up real-time listener for statistics updates
+    setupStatisticsListener(sessionId, questionIndex, question, initialClassScores) {
+        // Remove existing listener if any
+        if (this.statisticsListener) {
+            this.statisticsListener();
+            this.statisticsListener = null;
+        }
+        
+        // Listen for votes on this question (both general votes and class votes)
+        const votesKey = `gameSession_${sessionId}_votes_${questionIndex}`;
+        const classVotesKey = `gameSession_${sessionId}_classVotes_${questionIndex}`;
+        
+        // Create a combined listener function
+        const updateStats = async () => {
+            // Recalculate scores when votes change
+            const updatedScores = await this.calculateClassScores(sessionId);
+            // Update the statistics modal if it's still open
+            const modal = document.getElementById('lifelineModal');
+            if (modal && modal.classList.contains('show')) {
+                await this.showQuestionStatistics(question, questionIndex, sessionId, updatedScores);
+            }
+        };
+        
+        // Listen to both vote keys
+        if (window.dataStore && window.dataStore.useFirebase) {
+            const unsubscribe1 = window.dataStore.on(votesKey, updateStats);
+            const unsubscribe2 = window.dataStore.on(classVotesKey, updateStats);
+            
+            // Store both unsubscribe functions
+            this.statisticsListener = () => {
+                if (unsubscribe1) unsubscribe1();
+                if (unsubscribe2) unsubscribe2();
+            };
+        }
+    }
+    
+    // Set up real-time listener for class scores updates
+    setupClassScoresListener(sessionId) {
+        // Remove existing listener if any
+        if (this.classScoresListener) {
+            this.classScoresListener();
+            this.classScoresListener = null;
+        }
+        
+        // Listen for class scores changes
+        const scoresKey = `gameSession_${sessionId}_classScores`;
+        this.classScoresListener = window.dataStore.on(scoresKey, async (scores) => {
+            // Recalculate all scores when host scores change
+            const updatedScores = await this.calculateClassScores(sessionId);
+            // Update the statistics modal if it's still open
+            const modal = document.getElementById('lifelineModal');
+            if (modal && modal.classList.contains('show')) {
+                let statsHTML = '<div class="text-center"><h6>Class Scores</h6>';
+                statsHTML += this.renderClassScores(updatedScores);
+                statsHTML += '</div>';
+                document.getElementById('lifeline-content').innerHTML = statsHTML;
+            }
+        });
+        
+        // Also listen for votes on all questions
+        for (let qIndex = 0; qIndex < 15; qIndex++) {
+            const votesKey = `gameSession_${sessionId}_classVotes_${qIndex}`;
+            window.dataStore.on(votesKey, async () => {
+                // Recalculate all scores when any vote changes
+                const updatedScores = await this.calculateClassScores(sessionId);
+                const modal = document.getElementById('lifelineModal');
+                if (modal && modal.classList.contains('show')) {
+                    let statsHTML = '<div class="text-center"><h6>Class Scores</h6>';
+                    statsHTML += this.renderClassScores(updatedScores);
+                    statsHTML += '</div>';
+                    document.getElementById('lifeline-content').innerHTML = statsHTML;
+                }
+            });
         }
     }
     
@@ -1011,14 +1114,23 @@ class MathMillionaireGame {
             classes = JSON.parse(allClasses);
         }
         
-        // First, get scores from host's correct answers
+        // First, get scores from host's correct answers using dataStore
         const scoresKey = `gameSession_${sessionId}_classScores`;
-        const storedScores = localStorage.getItem(scoresKey);
+        let storedScores = null;
+        
+        if (window.dataStore) {
+            storedScores = await window.dataStore.get(scoresKey);
+        } else {
+            const localStored = localStorage.getItem(scoresKey);
+            if (localStored) {
+                storedScores = JSON.parse(localStored);
+            }
+        }
+        
         if (storedScores) {
-            const hostScores = JSON.parse(storedScores);
             classes.forEach(className => {
                 classScores[className] = {
-                    totalScore: hostScores[className] || 0,
+                    totalScore: storedScores[className] || 0,
                     correctAnswers: 0,
                     totalQuestions: 0
                 };
@@ -1039,22 +1151,39 @@ class MathMillionaireGame {
             // Calculate prize for this question (original scoring method)
             const prizeAmount = this.prizeLadder[qIndex] || 0;
             
-            // Get class votes for this question
+            // Get class votes for this question using dataStore
             const classVotesKey = `gameSession_${sessionId}_classVotes_${qIndex}`;
-            const classVotesData = localStorage.getItem(classVotesKey);
+            let classVotesData = null;
+            
+            if (window.dataStore) {
+                classVotesData = await window.dataStore.get(classVotesKey);
+            } else {
+                const localStored = localStorage.getItem(classVotesKey);
+                if (localStored) {
+                    classVotesData = JSON.parse(localStored);
+                }
+            }
             
             if (!classVotesData) continue;
             
-            const classVotes = JSON.parse(classVotesData);
+            const classVotes = classVotesData;
             
             // Get the correct answer for this question from stored data
             let correctAnswerIndex = null;
             
-            // First try to get from stored question data
-            const storedQuestionData = localStorage.getItem(`gameSession_${sessionId}_questionData_${qIndex}`);
+            // First try to get from stored question data using dataStore
+            let storedQuestionData = null;
+            if (window.dataStore) {
+                storedQuestionData = await window.dataStore.get(`gameSession_${sessionId}_questionData_${qIndex}`);
+            } else {
+                const localStored = localStorage.getItem(`gameSession_${sessionId}_questionData_${qIndex}`);
+                if (localStored) {
+                    storedQuestionData = JSON.parse(localStored);
+                }
+            }
+            
             if (storedQuestionData) {
-                const data = JSON.parse(storedQuestionData);
-                correctAnswerIndex = data.correct;
+                correctAnswerIndex = storedQuestionData.correct;
             } else if (qIndex < this.questions.length) {
                 // Fallback to current questions array
                 correctAnswerIndex = this.questions[qIndex].correct;
@@ -1269,22 +1398,40 @@ class MathMillionaireGame {
     }
     
     // Show statistics for a specific question
-    showQuestionStatistics(question, questionIndex, sessionId, classScores = {}) {
+    async showQuestionStatistics(question, questionIndex, sessionId, classScores = {}) {
         let results = [0, 0, 0, 0];
         const votesKey = `gameSession_${sessionId}_votes_${questionIndex}`;
-        const audienceVotes = localStorage.getItem(votesKey);
+        let audienceVotes = null;
         
-        // Get class-specific votes if available
+        // Get votes using dataStore
+        if (window.dataStore) {
+            audienceVotes = await window.dataStore.get(votesKey);
+        } else {
+            const localStored = localStorage.getItem(votesKey);
+            if (localStored) {
+                audienceVotes = JSON.parse(localStored);
+            }
+        }
+        
+        // Get class-specific votes if available using dataStore
         const classVotesKey = `gameSession_${sessionId}_classVotes_${questionIndex}`;
-        const classVotesData = localStorage.getItem(classVotesKey);
         let classVotes = {};
-        if (classVotesData) {
-            classVotes = JSON.parse(classVotesData);
+        
+        if (window.dataStore) {
+            const classVotesData = await window.dataStore.get(classVotesKey);
+            if (classVotesData) {
+                classVotes = classVotesData;
+            }
+        } else {
+            const classVotesData = localStorage.getItem(classVotesKey);
+            if (classVotesData) {
+                classVotes = JSON.parse(classVotesData);
+            }
         }
         
         if (audienceVotes && sessionId) {
-            // Use real audience votes
-            const votes = JSON.parse(audienceVotes);
+            // Use real audience votes (already parsed if from dataStore)
+            const votes = Array.isArray(audienceVotes) ? audienceVotes : JSON.parse(audienceVotes);
             const totalVotes = votes.reduce((sum, count) => sum + count, 0);
             
             if (totalVotes > 0) {
@@ -1308,7 +1455,7 @@ class MathMillionaireGame {
         let statsHTML = '<div class="text-center"><h4 class="mb-4 fw-bold">Audience Voting Statistics</h4>';
         
         if (audienceVotes && sessionId) {
-            const votes = JSON.parse(audienceVotes);
+            const votes = Array.isArray(audienceVotes) ? audienceVotes : JSON.parse(audienceVotes);
             const totalVotes = votes.reduce((sum, count) => sum + count, 0);
             statsHTML += `<p class="mb-4" style="font-size: 1.2rem;"><strong>${totalVotes} audience member${totalVotes !== 1 ? 's' : ''} voted</strong></p>`;
             
@@ -1332,7 +1479,8 @@ class MathMillionaireGame {
         
         // Show voting results
         question.options.forEach((option, index) => {
-            const voteCount = audienceVotes ? JSON.parse(audienceVotes)[index] : 0;
+            const votes = Array.isArray(audienceVotes) ? audienceVotes : (audienceVotes ? JSON.parse(audienceVotes) : [0, 0, 0, 0]);
+            const voteCount = votes[index] || 0;
             statsHTML += `
                 <div class="mb-4">
                     <div class="d-flex justify-content-between align-items-center mb-2" style="font-size: 1.1rem;">
