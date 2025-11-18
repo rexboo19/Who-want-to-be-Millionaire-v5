@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Millionaire - Who Wants to Be a Math Millionaire?</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Main Game Container -->
+    <div class="container-fluid game-container">
+        <!-- Header -->
+        <div class="row header-section">
+            <div class="col-12 text-center">
+                <h1 class="game-title">
+                    <i class="fas fa-calculator"></i>
+                    MATH MILLIONAIRE
+                </h1>
+                <p class="game-subtitle">Who Wants to Be a Math Millionaire?</p>
+                <div class="admin-link">
+                    <a href="admin.html" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-cog"></i> Manage Questions
+                    </a>
+                    <button class="btn btn-outline-light btn-sm ms-2" id="show-statistics">
+                        <i class="fas fa-chart-bar"></i> Statistics
+                    </button>
+                    <button class="btn btn-success btn-sm ms-2" id="start-game">Start Game</button>
+                </div>
+                <div class="class-selector-container mt-3">
+                    <label for="class-selector" class="form-label text-white">
+                        <i class="fas fa-graduation-cap"></i> Assign Question to Class:
+                    </label>
+                    <select class="form-select form-select-lg" id="class-selector" style="max-width: 300px; margin: 0 auto;">
+                        <!-- Classes will be populated dynamically -->
+                    </select>
+                    <div id="assigned-class-display" class="mt-2">
+                        <span class="badge bg-warning text-dark" style="font-size: 1rem;">
+                            <i class="fas fa-users"></i> Assigned to: <span id="current-assigned-class"></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div class="row game-area">
+            <!-- Question Panel -->
+            <div class="col-lg-8 question-panel">
+                <div class="question-container">
+                    <div class="question-number">
+                        <span id="current-question">Question 1</span>
+                    </div>
+                    <div class="question-text" id="question-text">
+                        What is 15 + 27?
+                    </div>
+                    <div id="question-image-container" class="question-image-container" style="display: none;">
+                        <img id="question-image" src="" alt="Question image" class="img-fluid">
+                    </div>
+                    <div class="options-container" id="options-container">
+                        <div class="option" data-option="A">
+                            <span class="option-letter">A</span>
+                            <span class="option-text">42</span>
+                        </div>
+                        <div class="option" data-option="B">
+                            <span class="option-letter">B</span>
+                            <span class="option-text">41</span>
+                        </div>
+                        <div class="option" data-option="C">
+                            <span class="option-letter">C</span>
+                            <span class="option-text">43</span>
+                        </div>
+                        <div class="option" data-option="D">
+                            <span class="option-letter">D</span>
+                            <span class="option-text">40</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prize Ladder -->
+            <div class="col-lg-4 prize-ladder">
+                <!-- Lifelines Section -->
+                <div class="lifelines-container mb-3">
+                    <h5 class="ladder-title">Lifelines</h5>
+                    <div class="lifelines">
+                        <button class="lifeline-btn" id="fifty-fifty" data-lifeline="50-50">
+                            <i class="fas fa-cut"></i>
+                            50:50
+                        </button>
+                        <button class="lifeline-btn" id="phone-friend" data-lifeline="phone">
+                            <i class="fas fa-phone"></i>
+                            Phone a Friend
+                        </button>
+                        <button class="lifeline-btn" id="ask-audience" data-lifeline="audience">
+                            <i class="fas fa-users"></i>
+                            Ask the Audience
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="ladder-container">
+                    <h4 class="ladder-title">Prize Ladder</h4>
+                    <div class="ladder-item" data-level="1">
+                        <span class="ladder-amount">100</span>
+                        <span class="ladder-level">1</span>
+                    </div>
+                    <div class="ladder-item" data-level="2">
+                        <span class="ladder-amount">200</span>
+                        <span class="ladder-level">2</span>
+                    </div>
+                    <div class="ladder-item" data-level="3">
+                        <span class="ladder-amount">300</span>
+                        <span class="ladder-level">3</span>
+                    </div>
+                    <div class="ladder-item" data-level="4">
+                        <span class="ladder-amount">500</span>
+                        <span class="ladder-level">4</span>
+                    </div>
+                    <div class="ladder-item" data-level="5">
+                        <span class="ladder-amount">1,000</span>
+                        <span class="ladder-level">5</span>
+                    </div>
+                    <div class="ladder-item" data-level="6">
+                        <span class="ladder-amount">2,000</span>
+                        <span class="ladder-level">6</span>
+                    </div>
+                    <div class="ladder-item" data-level="7">
+                        <span class="ladder-amount">4,000</span>
+                        <span class="ladder-level">7</span>
+                    </div>
+                    <div class="ladder-item" data-level="8">
+                        <span class="ladder-amount">8,000</span>
+                        <span class="ladder-level">8</span>
+                    </div>
+                    <div class="ladder-item" data-level="9">
+                        <span class="ladder-amount">16,000</span>
+                        <span class="ladder-level">9</span>
+                    </div>
+                    <div class="ladder-item" data-level="10">
+                        <span class="ladder-amount">32,000</span>
+                        <span class="ladder-level">10</span>
+                    </div>
+                    <div class="ladder-item" data-level="11">
+                        <span class="ladder-amount">64,000</span>
+                        <span class="ladder-level">11</span>
+                    </div>
+                    <div class="ladder-item" data-level="12">
+                        <span class="ladder-amount">125,000</span>
+                        <span class="ladder-level">12</span>
+                    </div>
+                    <div class="ladder-item" data-level="13">
+                        <span class="ladder-amount">250,000</span>
+                        <span class="ladder-level">13</span>
+                    </div>
+                    <div class="ladder-item" data-level="14">
+                        <span class="ladder-amount">500,000</span>
+                        <span class="ladder-level">14</span>
+                    </div>
+                    <div class="ladder-item current" data-level="15">
+                        <span class="ladder-amount">1,000,000</span>
+                        <span class="ladder-level">15</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Game Controls -->
+        <div class="row controls-section">
+            <div class="col-12 text-center">
+                <button class="btn btn-warning btn-lg" id="next-question" style="display: none;">Next Question</button>
+                <button class="btn btn-danger btn-lg" id="quit-game" style="display: none;">Quit Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Game Over -->
+    <div class="modal fade" id="gameOverModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Game Over</h5>
+                </div>
+                <div class="modal-body">
+                    <p id="game-over-message"></p>
+                    <p id="final-score"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" id="play-again">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Lifelines -->
+    <div class="modal fade" id="lifelineModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="lifeline-title"></h5>
+                </div>
+                <div class="modal-body" id="lifeline-content">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for QR Code -->
+    <div class="modal fade" id="qrCodeModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-qrcode"></i> Scan to Join as Audience
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p class="mb-3">Scan this QR code with your smartphone to join the game as an audience member!</p>
+                    <div id="qrcode" class="qr-code-container"></div>
+                    <p class="mt-3 mb-2"><strong>Or visit:</strong></p>
+                    <div class="game-url-container">
+                        <input type="text" id="game-url" class="form-control text-center" readonly>
+                        <button class="btn btn-sm btn-outline-light mt-2" id="copy-url-btn">
+                            <i class="fas fa-copy"></i> Copy URL
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MathJax for mathematical notation -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']],
+                processEscapes: true,
+                processEnvironments: true
+            },
+            options: {
+                skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre']
+            }
+        };
+    </script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Firebase Configuration -->
+    <script src="firebase-config.js"></script>
+    <!-- Firebase Helper -->
+    <script src="firebase-helper.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- QR Code Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Custom JS -->
+    <script src="script.js"></script>
+</body>
+</html>
